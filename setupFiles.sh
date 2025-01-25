@@ -124,11 +124,12 @@ function make_links {
             $SUDO cp "$source" "$dest"
         else
             if [[ -e "$dest" ]]; then
-                if ! diff -q "$dest" "$source" > /dev/null; then
+                if cmp -s "$source" "$dest"; then
+                    echo "INFO: Skipping identical file: $dest" >&2
+                    continue
+                else
                     echo "INFO: $dest exists, moving to $dest.old" >&2
                     $SUDO mv "$dest" "$dest.old"
-                else
-                    continue
                 fi
             elif [[ -L "$dest" && ! -e "$dest" ]]; then
                 echo "WARN: Deleting broken link: $dest --> $(readlink "$dest")" >&2

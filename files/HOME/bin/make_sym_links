@@ -1,7 +1,26 @@
 #!/bin/bash
 
-# Check if two arguments are provided
+# Function to display the help menu
+display_help() {
+    echo "Usage: $0 [OPTIONS] <source_directory> <destination_directory>"
+    echo
+    echo "Options:"
+    echo "  -h, --help      Display this help menu."
+    echo
+    echo "Description:"
+    echo "  This script creates symbolic links for all files in the source directory"
+    echo "  and places them in the destination directory."
+    exit 0
+}
+
+# Check for help flag
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    display_help
+fi
+
+# Ensure exactly two arguments are provided
 if [ "$#" -ne 2 ]; then
+    echo "Error: Invalid number of arguments."
     echo "Usage: $0 <source_directory> <destination_directory>"
     exit 1
 fi
@@ -9,15 +28,39 @@ fi
 SOURCE_DIR="$1"
 DEST_DIR="$2"
 
+# Check if the source directory exists
+if [ ! -d "$SOURCE_DIR" ]; then
+    echo "Error: Source directory '$SOURCE_DIR' does not exist."
+    exit 1
+fi
+
 # Create the destination directory if it does not exist
-mkdir -p "$DEST_DIR"
+if [ ! -d "$DEST_DIR" ]; then
+    mkdir -p "$DEST_DIR" || {
+        echo "Error: Failed to create destination directory '$DEST_DIR'."
+        exit 1
+    }
+fi
 
 # Iterate over each file in the source directory
 for FILE in "$SOURCE_DIR"/*; do
     if [ -f "$FILE" ]; then
         FILENAME=$(basename "$FILE")
-        ln -s "`pwd`/$FILENAME" "$DEST_DIR"
-        echo "Created symlink for $FILE"
+        SOURCE_PATH=$(realpath "$FILE")
+        DEST_PATH="$DEST_DIR/$FILENAME"
+
+        # Check if the destination symlink already exists
+        if [ -L "$DEST_PATH" ]; then
+            echo "Warning: Symlink already exists for $DEST_PATH, skipping."
+            continue
+        fi
+
+        # Create the symbolic link
+        ln -s "$SOURCE_PATH" "$DEST_PATH" || {
+            echo "Error: Failed to create symlink for '$FILE'."
+            continue
+        }
+        echo "Created symlink for $FILE -> $DEST_PATH"
     fi
 done
 
