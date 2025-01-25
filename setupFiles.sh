@@ -8,7 +8,8 @@ COPY_PATTERNS=(
 )
 
 # Array to track action items for user review
-ACTION_ITEMS=()
+NON_SUDO_ACTION_ITEMS=()
+SUDO_ACTION_ITEMS=()
 
 # Default options
 MERGE_ENABLED=false
@@ -112,20 +113,35 @@ function should_copy {
 function interactive_merge {
     local file1="$1"
     local file2="$2"
+    local use_sudo="$3"
 
     log "INFO" "Starting merge for $file1 and $file2"
     case "$MERGE_TOOL" in
         vimdiff)
-            vimdiff "$file1" "$file2"
+            if [[ "$use_sudo" == "sudo" ]]; then
+                sudo vimdiff "$file1" "$file2"
+            else
+                vimdiff "$file1" "$file2"
+            fi
             ;;
         emacs)
-            emacsclient -c -e "(ediff-files \"$file1\" \"$file2\")"
+            if [[ "$use_sudo" == "sudo" ]]; then
+                sudo emacsclient -c -e "(ediff-files \"$file1\" \"$file2\")"
+            else
+                emacsclient -c -e "(ediff-files \"$file1\" \"$file2\")"
+            fi
             ;;
         git-style)
-            local merged_file="$file1"
-            diff3 -m "$file1" "$file2" > "$merged_file" || {
-                log "INFO" "Conflict detected. Edit $merged_file to resolve."
-            }
+            local merged_file="$file1.new"
+            if [[ "$use_sudo" == "sudo" ]]; then
+                sudo diff3 -m "$file1" "$file2" > "$merged_file" || {
+                    log "INFO" "Conflict detected. Edit $merged_file to resolve."
+                }
+            else
+                diff3 -m "$file1" "$file2" > "$merged_file" || {
+                    log "INFO" "Conflict detected. Edit $merged_file to resolve."
+                }
+            fi
             ;;
         *)
             log "ERROR" "Unknown merge tool: $MERGE_TOOL"
@@ -192,8 +208,11 @@ function make_links {
                         log "INFO" "$dest exists, moving to $dest.old"
                         $SUDO mv "$dest" "$dest.old"
 
-                        # Add action item for user to review
-                        ACTION_ITEMS+=("Review and merge: $dest and $dest.old")
+                        if [[ "$use_sudo" == "sudo" ]]; then
+                            SUDO_ACTION_ITEMS+=("Review and merge: $dest and $dest.old")
+                        else
+                            NON_SUDO_ACTION_ITEMS+=("Review and merge: $dest and $dest.old")
+                        fi
                     fi
                 fi
             elif [[ -L "$dest" && ! -e "$dest" ]]; then
@@ -257,30 +276,47 @@ ensure_variables
 append_ssh_config
 
 # Print summary of action items
-if [[ ${#ACTION_ITEMS[@]} -gt 0 ]]; then
-    echo -e "\nSUMMARY OF ACTION ITEMS:"
-    for item in "${ACTION_ITEMS[@]}"; do
+if [[ ${#NON_SUDO_ACTION_ITEMS[@]} -gt 0 ]]; then
+    echo -e "\nSUMMARY OF NON-SUDO ACTION ITEMS:"
+    for item in "${NON_SUDO_ACTION_ITEMS[@]}"; do
+        echo "  - $item"
+    done
+fi
+
+if [[ ${#SUDO_ACTION_ITEMS[@]} -gt 0 ]]; then
+    echo -e "\nSUMMARY OF SUDO ACTION ITEMS:"
+    for item in "${SUDO_ACTION_ITEMS[@]}"; do
         echo "  - $item"
     done
 
-    if [[ "$MERGE_ENABLED" = true ]]; then
-        for item in "${ACTION_ITEMS[@]}"; do
+    echo -e "\nWould you like to proceed with sudo merges? [y/N]"
+    read -r sudo_merge_resp
+    if [[ "$sudo_merge_resp" =~ ^[yY]$ ]]; then
+        for item in "${SUDO_ACTION_ITEMS[@]}"; do
             file1=$(echo "$item" | awk -F ' and ' '{print $2}')
             file2=$(echo "$item" | awk -F ' and ' '{print $3}')
-            interactive_merge "$file1" "$file2"
+            interactive_merge "$file1" "$file2" "sudo"
         done
     else
-        echo -e "\nWould you like to merge any conflicting files? [y/N]"
-        read -r merge_resp
-        if [[ "$merge_resp" =~ ^[yY]$ ]]; then
-            for item in "${ACTION_ITEMS[@]}"; do
-                file1=$(echo "$item" | awk -F ' and ' '{print $2}')
-                file2=$(echo "$item" | awk -F ' and ' '{print $3}')
-                interactive_merge "$file1" "$file2"
-            done
-        else
-            log "INFO" "Skipping merge process."
-        fi
+        log "INFO" "Skipping sudo merges."
     fi
-else
-    echo
+fi
+
+if [[ ${#NON_SUDO_ACTION_ITEMS[@]} -gt 0 ]]; then
+    echo -e "\nWould you like to proceed with non-sudo merges? [y/N]"
+    read -r non_sudo_merge_resp
+    if [[ "$non_sudo_merge_resp" =~ ^[yY]$ ]]; then
+        for item in "${NON_SUDO_ACTION_ITEMS[@]}"; do
+            file1=$(echo "$item" | awk -F ' and ' '{print $2}')
+            file2=$(echo "$item" | awk -F ' and ' '{print $3}')
+            interactive_merge "$file1" "$file2" ""
+        done
+    else
+        log "INFO" "Skipping non-sudo merges."
+    fi
+fi
+
+if [[ ${#NON_SUDO_ACTION_ITEMS[@]} -eq 0 && ${#SUDO_ACTION_ITEMS[@]} -eq 0 ]]; then
+    echo -e "\nNo action items. All files were processed successfully."
+fi
+
