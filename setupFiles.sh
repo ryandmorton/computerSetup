@@ -7,6 +7,9 @@ COPY_PATTERNS=(
     "$HOME/.ssh/config.d/*.config"
 )
 
+# Array to track action items for user review
+ACTION_ITEMS=()
+
 # Print help message
 function print_help {
     echo "Usage: $(basename "$0") [OPTIONS]"
@@ -130,6 +133,9 @@ function make_links {
                 else
                     echo "INFO: $dest exists, moving to $dest.old" >&2
                     $SUDO mv "$dest" "$dest.old"
+
+                    # Add action item for user to review
+                    ACTION_ITEMS+=("Review and merge: $dest and $dest.old")
                 fi
             elif [[ -L "$dest" && ! -e "$dest" ]]; then
                 echo "WARN: Deleting broken link: $dest --> $(readlink "$dest")" >&2
@@ -166,3 +172,13 @@ make_links "/" "$FILE_DIR/ROOT" "sudo"
 
 ensure_variables
 append_ssh_config
+
+# Print summary of action items
+if [[ ${#ACTION_ITEMS[@]} -gt 0 ]]; then
+    echo -e "\nSUMMARY OF ACTION ITEMS:"
+    for item in "${ACTION_ITEMS[@]}"; do
+        echo "  - $item"
+    done
+else
+    echo -e "\nNo action items. All files were processed successfully."
+fi
