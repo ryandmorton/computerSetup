@@ -89,7 +89,9 @@ if [ "$ADD_CONFIG" = true ]; then
         chmod 600 "$SSH_CONFIG"
 
         {
-            echo "\nHost $HOST_NAME"
+            echo ""
+            echo ""
+            echo "    Host $HOST_NAME"
             echo "    HostName $HOST_ONLY"
             echo "    IdentityFile $KEY_NAME"
             echo "    User $(echo "$SERVER_LOGIN" | cut -d '@' -f 1)"

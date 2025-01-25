@@ -16,6 +16,10 @@ MERGE_ENABLED=false
 MERGE_TOOL="vimdiff"
 LOG_FILE=""
 DRY_RUN=false
+DEST_USER_DIR="$HOME"
+DEST_SYSTEM_DIR="/"
+SRC_USER_DIR="$FILE_DIR/HOME"
+SRC_SYSTEM_DIR="$FILE_DIR/ROOT"
 
 # Print help message
 function print_help {
@@ -27,6 +31,10 @@ function print_help {
     echo "  --merge-tool <tool>  Specify merge tool (vimdiff, emacs, git-style). Default: vimdiff."
     echo "  --log-file <file>    Save logs to the specified file."
     echo "  --dry-run            Simulate actions without making any changes."
+    echo "  --user-dir <dir>     Specify the destination directory for user-space files. Default: $HOME."
+    echo "  --system-dir <dir>   Specify the destination directory for system-space files. Default: /."
+    echo "  --source-user-dir <dir>  Specify the source directory for user-space files. Default: $FILE_DIR/HOME."
+    echo "  --source-system-dir <dir> Specify the source directory for system-space files. Default: $FILE_DIR/ROOT."
     echo ""
     echo "Description:"
     echo "  This script sets up your environment by linking or copying shared configuration files."
@@ -257,6 +265,22 @@ while [[ $# -gt 0 ]]; do
             DRY_RUN=true
             shift
             ;;
+        --user-dir)
+            DEST_USER_DIR="$2"
+            shift 2
+            ;;
+        --system-dir)
+            DEST_SYSTEM_DIR="$2"
+            shift 2
+            ;;
+        --source-user-dir)
+            SRC_USER_DIR="$2"
+            shift 2
+            ;;
+        --source-system-dir)
+            SRC_SYSTEM_DIR="$2"
+            shift 2
+            ;;
         *)
             log "ERROR" "Unknown option: $1"
             exit 1
@@ -269,8 +293,18 @@ if [[ ! -d "$FILE_DIR" ]]; then
     exit 1
 fi
 
-make_links "$HOME" "$FILE_DIR/HOME"
-make_links "/" "$FILE_DIR/ROOT" "sudo"
+if [[ ! -d "$SRC_USER_DIR" ]]; then
+    log "ERROR" "Source user directory '$SRC_USER_DIR' does not exist."
+    exit 1
+fi
+
+if [[ ! -d "$SRC_SYSTEM_DIR" ]]; then
+    log "ERROR" "Source system directory '$SRC_SYSTEM_DIR' does not exist."
+    exit 1
+fi
+
+make_links "$DEST_USER_DIR" "$SRC_USER_DIR"
+make_links "$DEST_SYSTEM_DIR" "$SRC_SYSTEM_DIR" "sudo"
 
 ensure_variables
 append_ssh_config
@@ -319,4 +353,3 @@ fi
 if [[ ${#NON_SUDO_ACTION_ITEMS[@]} -eq 0 && ${#SUDO_ACTION_ITEMS[@]} -eq 0 ]]; then
     echo -e "\nNo action items. All files were processed successfully."
 fi
-
