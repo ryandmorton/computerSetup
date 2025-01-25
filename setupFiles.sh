@@ -13,6 +13,8 @@ ACTION_ITEMS=()
 # Default options
 MERGE_ENABLED=false
 MERGE_TOOL="vimdiff"
+LOG_FILE=""
+DRY_RUN=false
 
 # Print help message
 function print_help {
@@ -22,6 +24,8 @@ function print_help {
     echo "  --help, -h           Show this help message and exit."
     echo "  --merge, -m          Automatically attempt to merge conflicting files."
     echo "  --merge-tool <tool>  Specify merge tool (vimdiff, emacs, git-style). Default: vimdiff."
+    echo "  --log-file <file>    Save logs to the specified file."
+    echo "  --dry-run            Simulate actions without making any changes."
     echo ""
     echo "Description:"
     echo "  This script sets up your environment by linking or copying shared configuration files."
@@ -30,6 +34,16 @@ function print_help {
     echo "  INFO: General operation logs."
     echo "  WARN: Warnings about potential issues."
     echo "  ERROR: Errors encountered during execution."
+}
+
+# Log function to handle logging to a file if specified
+function log {
+    local level="$1"
+    local message="$2"
+    echo "[$level] $message"
+    if [[ -n "$LOG_FILE" ]]; then
+        echo "[$level] $message" >> "$LOG_FILE"
+    fi
 }
 
 # Function to ensure environment variables are set
@@ -52,7 +66,7 @@ function process_templates {
 
     # Replace placeholders with actual values
     sed "s/{{GIT_USER_NAME}}/$GIT_USER_NAME/g; s/{{GIT_USER_EMAIL}}/$GIT_USER_EMAIL/g" "$template" > "$dest"
-    echo "INFO: Processed template: $template -> $dest"
+    log "INFO" "Processed template: $template -> $dest"
 }
 
 # Function to append content to ~/.ssh/config if necessary
@@ -64,9 +78,9 @@ function append_ssh_config {
 
     if ! grep -Fxq "$include_line" "$ssh_config"; then
         echo "$include_line" >> "$ssh_config"
-        echo "INFO: Appended Include line to $ssh_config"
+        log "INFO" "Appended Include line to $ssh_config"
     else
-        echo "INFO: Include line already exists in $ssh_config"
+        log "INFO" "Include line already exists in $ssh_config"
     fi
 }
 
@@ -77,7 +91,7 @@ function validate_filename {
         return 1
     fi
     if [[ "$filename" == *.disable ]] || [[ "$filename" == *.disabled ]]; then
-        echo "INFO: Ignoring disabled symlink: $filename" >&2
+        log "INFO" "Ignoring disabled symlink: $filename"
         return 1
     fi
     return 0
@@ -99,7 +113,7 @@ function interactive_merge {
     local file1="$1"
     local file2="$2"
 
-    echo "INFO: Starting merge for $file1 and $file2"
+    log "INFO" "Starting merge for $file1 and $file2"
     case "$MERGE_TOOL" in
         vimdiff)
             vimdiff "$file1" "$file2"
@@ -110,15 +124,15 @@ function interactive_merge {
         git-style)
             local merged_file="$file1"
             diff3 -m "$file1" "$file2" > "$merged_file" || {
-                echo "INFO: Conflict detected. Edit $merged_file to resolve."
+                log "INFO" "Conflict detected. Edit $merged_file to resolve."
             }
             ;;
         *)
-            echo "ERROR: Unknown merge tool: $MERGE_TOOL" >&2
+            log "ERROR" "Unknown merge tool: $MERGE_TOOL"
             exit 1
             ;;
     esac
-    echo "INFO: Merge completed. Review $file1 for final changes."
+    log "INFO" "Merge completed. Review $file1 for final changes."
 }
 
 # Function to create symlinks or copy files
@@ -128,12 +142,12 @@ function make_links {
     local use_sudo="${3:-}"
 
     if [[ ! -d "$source_folder" ]]; then
-        echo "ERROR: Source folder '$source_folder' does not exist." >&2
+        log "ERROR" "Source folder '$source_folder' does not exist."
         exit 1
     fi
 
     if [[ -n "$use_sudo" && "$use_sudo" != "sudo" ]]; then
-        echo "ERROR: Invalid argument for sudo option: $use_sudo" >&2
+        log "ERROR" "Invalid argument for sudo option: $use_sudo"
         exit 1
     fi
 
@@ -149,34 +163,54 @@ function make_links {
 
         local dest="$dest_folder/$file"
         if [[ -d "$source" ]]; then
-            $SUDO mkdir -p "$dest"
+            if [[ "$DRY_RUN" == true ]]; then
+                log "INFO" "[Dry-run] Would create directory: $dest"
+            else
+                $SUDO mkdir -p "$dest"
+            fi
             make_links "$dest" "$source" "$use_sudo"
             continue
         fi
 
         # Determine whether to copy or symlink
         if should_copy "$dest"; then
-            echo "INFO: Copying file: $source -> $dest" >&2
-            $SUDO cp "$source" "$dest"
+            if [[ "$DRY_RUN" == true ]]; then
+                log "INFO" "[Dry-run] Would copy file: $source -> $dest"
+            else
+                log "INFO" "Copying file: $source -> $dest"
+                $SUDO cp "$source" "$dest"
+            fi
         else
             if [[ -e "$dest" ]]; then
                 if cmp -s "$source" "$dest"; then
-                    echo "INFO: Skipping identical file: $dest" >&2
+                    log "INFO" "Skipping identical file: $dest"
                     continue
                 else
-                    echo "INFO: $dest exists, moving to $dest.old" >&2
-                    $SUDO mv "$dest" "$dest.old"
+                    if [[ "$DRY_RUN" == true ]]; then
+                        log "INFO" "[Dry-run] Would move existing file: $dest -> $dest.old"
+                    else
+                        log "INFO" "$dest exists, moving to $dest.old"
+                        $SUDO mv "$dest" "$dest.old"
 
-                    # Add action item for user to review
-                    ACTION_ITEMS+=("Review and merge: $dest and $dest.old")
+                        # Add action item for user to review
+                        ACTION_ITEMS+=("Review and merge: $dest and $dest.old")
+                    fi
                 fi
             elif [[ -L "$dest" && ! -e "$dest" ]]; then
-                echo "WARN: Deleting broken link: $dest --> $(readlink "$dest")" >&2
-                $SUDO rm "$dest"
+                if [[ "$DRY_RUN" == true ]]; then
+                    log "INFO" "[Dry-run] Would delete broken link: $dest"
+                else
+                    log "WARN" "Deleting broken link: $dest --> $(readlink "$dest")"
+                    $SUDO rm "$dest"
+                fi
             fi
 
-            echo "INFO: Creating symlink: $dest -> $source" >&2
-            $SUDO ln -s "$source" "$dest"
+            if [[ "$DRY_RUN" == true ]]; then
+                log "INFO" "[Dry-run] Would create symlink: $dest -> $source"
+            else
+                log "INFO" "Creating symlink: $dest -> $source"
+                $SUDO ln -s "$source" "$dest"
+            fi
         fi
     done
 }
@@ -196,15 +230,23 @@ while [[ $# -gt 0 ]]; do
             MERGE_TOOL="$2"
             shift 2
             ;;
+        --log-file)
+            LOG_FILE="$2"
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
         *)
-            echo "ERROR: Unknown option: $1" >&2
+            log "ERROR" "Unknown option: $1"
             exit 1
             ;;
     esac
 done
 
 if [[ ! -d "$FILE_DIR" ]]; then
-    echo "ERROR: File directory '$FILE_DIR' does not exist." >&2
+    log "ERROR" "File directory '$FILE_DIR' does not exist."
     exit 1
 fi
 
@@ -237,9 +279,8 @@ if [[ ${#ACTION_ITEMS[@]} -gt 0 ]]; then
                 interactive_merge "$file1" "$file2"
             done
         else
-            echo "INFO: Skipping merge process."
+            log "INFO" "Skipping merge process."
         fi
     fi
 else
-    echo -e "\nNo action items. All files were processed successfully."
-fi
+    echo
