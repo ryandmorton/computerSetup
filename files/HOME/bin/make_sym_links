@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Check if two arguments are provided
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <source_directory> <destination_directory>"
+    exit 1
+fi
+
+SOURCE_DIR="$1"
+DEST_DIR="$2"
+
+# Create the destination directory if it does not exist
+mkdir -p "$DEST_DIR"
+
+# Iterate over each file in the source directory
+for FILE in "$SOURCE_DIR"/*; do
+    if [ -f "$FILE" ]; then
+        FILENAME=$(basename "$FILE")
+        ln -s "`pwd`/$FILENAME" "$DEST_DIR"
+        echo "Created symlink for $FILE"
+    fi
+done
+
+echo "All symbolic links created successfully."

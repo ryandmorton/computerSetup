@@ -3,19 +3,116 @@
 ## Purpose
 This repository serves as a centralized tool to streamline the setup of new machines for a consistent development environment. It is designed for teams and individuals who want to ensure that their development tools, configurations, and scripts are shared and reusable across systems.
 
-## Scope
-`computerSetup` includes:
-- Shared setup scripts for installing tools, configuring environments, and managing essential files.
-- A flexible structure that allows users to personalize their setups while keeping shared configurations intact.
-- A system for managing machine-independent configurations, reducing manual setup time.
+---
 
-## Vision
-The goal is to provide a base repository that users can clone, use, and customize while encouraging collaboration through public contributions and forks. This structure is especially helpful for organizations or teams that want to enforce best practices and consistency across machines.
+## Using This Repository
+
+### Cloning
+To clone this repository, run:
+```bash
+git clone git@github.com:ryandmorton/computerSetup.git
+cd computerSetup
+```
+
+### Setting Up
+This repository provides two main setup scripts:
+
+1. **File Setup**:
+   Use `setupFiles.sh` to link or copy shared configuration files to their appropriate locations:
+   ```bash
+   ./setupFiles.sh
+   ```
+   - This script handles:
+     - Linking files from the `files` directory to the correct locations in your system (e.g., `.bash_aliases`, `.gitconfig`).
+     - Copying files where symlinks are not appropriate (e.g., certain `.ssh/config.d` configurations).
+     - Appending shared content (like `Include` directives) to existing files without overwriting personal customizations.
+
+2. **Package Setup**:
+   Use `setupPackages.sh` to install the required tools and packages:
+   ```bash
+   ./setupPackages.sh
+   ```
+
+   - Update the script with your team’s or personal package requirements as needed.
 
 ---
 
-## Future Additions
-- Setup scripts for files and package installations.
-- Detailed documentation for using and forking the repository.
-- Guidelines for contributing via pull requests.
+## Personalizing Your Setup
+You can fork this repository and add personal customizations. This ensures you retain the shared functionality while keeping your changes private.
+
+### Forking the Repository
+To fork the repository:
+1. Visit the [repository page](https://github.com/ryandmorton/computerSetup).
+2. Click the **Fork** button in the top-right corner.
+
+### Setting Up the Upstream Public Repository
+Once you’ve forked the repository, you can set up the original `computerSetup` repository as the upstream to pull future updates.
+
+1. Add the upstream remote:
+   ```bash
+   git remote add upstream git@github.com:ryandmorton/computerSetup.git
+   ```
+
+2. Verify the remote setup:
+   ```bash
+   git remote -v
+   ```
+   Output:
+   ```
+   origin    git@github.com:your-username/computerSetup.git (fetch)
+   origin    git@github.com:your-username/computerSetup.git (push)
+   upstream  git@github.com:ryandmorton/computerSetup.git (fetch)
+   upstream  git@github.com:ryandmorton/computerSetup.git (push)
+   ```
+
+3. Pull updates from the upstream repository:
+   ```bash
+   git fetch upstream
+   git merge upstream/main
+   ```
+
+---
+
+## Contributing Back
+If you want to contribute improvements to the public repository:
+1. Create a new branch in your fork for your changes:
+   ```bash
+   git checkout -b feature/new-feature
+   ```
+
+2. Push the changes to your fork:
+   ```bash
+   git push origin feature/new-feature
+   ```
+
+3. Open a pull request on the upstream repository.
+
+---
+
+## File Structure
+The repository includes the following files and directories:
+
+```
+computerSetup/
+├── files/
+│   ├── HOME/
+│   │   ├── .bash_aliases               # Shared Bash aliases
+│   │   ├── .gitconfig.template         # Git configuration template
+│   │   └── bin/
+│   │       ├── make_keys_and_push.sh   # Script to generate SSH keys and push them to a remote server
+│   │       └── make_sym_links          # Script to create symbolic links
+│   └── ROOT/
+│       └── etc/
+│           └── udev/
+│               └── rules.d/
+│                   └── 99-YOUR-PERSONAL.rules # Example udev rules
+├── setupFiles.sh                       # Script to link or copy configuration files
+├── setupPackages.sh                    # Script to install required packages
+└── README.md                           # This README file
+```
+
+---
+
+## Vision
+The goal is to provide a base repository that users can clone, use, and customize while encouraging collaboration through public contributions and forks. This structure is especially helpful for organizations or teams that want to enforce best practices and consistency across machines.
 
