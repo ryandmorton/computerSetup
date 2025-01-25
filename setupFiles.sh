@@ -10,12 +10,18 @@ COPY_PATTERNS=(
 # Array to track action items for user review
 ACTION_ITEMS=()
 
+# Default options
+MERGE_ENABLED=false
+MERGE_TOOL="vimdiff"
+
 # Print help message
 function print_help {
     echo "Usage: $(basename "$0") [OPTIONS]"
     echo ""
     echo "Options:"
     echo "  --help, -h           Show this help message and exit."
+    echo "  --merge, -m          Automatically attempt to merge conflicting files."
+    echo "  --merge-tool <tool>  Specify merge tool (vimdiff, emacs, git-style). Default: vimdiff."
     echo ""
     echo "Description:"
     echo "  This script sets up your environment by linking or copying shared configuration files."
@@ -88,6 +94,33 @@ function should_copy {
     return 1
 }
 
+# Function to interactively merge files
+function interactive_merge {
+    local file1="$1"
+    local file2="$2"
+
+    echo "INFO: Starting merge for $file1 and $file2"
+    case "$MERGE_TOOL" in
+        vimdiff)
+            vimdiff "$file1" "$file2"
+            ;;
+        emacs)
+            emacsclient -c -e "(ediff-files \"$file1\" \"$file2\")"
+            ;;
+        git-style)
+            local merged_file="$file1"
+            diff3 -m "$file1" "$file2" > "$merged_file" || {
+                echo "INFO: Conflict detected. Edit $merged_file to resolve."
+            }
+            ;;
+        *)
+            echo "ERROR: Unknown merge tool: $MERGE_TOOL" >&2
+            exit 1
+            ;;
+    esac
+    echo "INFO: Merge completed. Review $file1 for final changes."
+}
+
 # Function to create symlinks or copy files
 function make_links {
     local dest_folder="$1"
@@ -148,19 +181,27 @@ function make_links {
     done
 }
 
-# Main script logic
-if [[ $# -ge 1 ]]; then
+# Parse command-line arguments
+while [[ $# -gt 0 ]]; do
     case "$1" in
         --help|-h)
             print_help
             exit 0
+            ;;
+        --merge|-m)
+            MERGE_ENABLED=true
+            shift
+            ;;
+        --merge-tool)
+            MERGE_TOOL="$2"
+            shift 2
             ;;
         *)
             echo "ERROR: Unknown option: $1" >&2
             exit 1
             ;;
     esac
-fi
+done
 
 if [[ ! -d "$FILE_DIR" ]]; then
     echo "ERROR: File directory '$FILE_DIR' does not exist." >&2
@@ -179,6 +220,26 @@ if [[ ${#ACTION_ITEMS[@]} -gt 0 ]]; then
     for item in "${ACTION_ITEMS[@]}"; do
         echo "  - $item"
     done
+
+    if [[ "$MERGE_ENABLED" = true ]]; then
+        for item in "${ACTION_ITEMS[@]}"; do
+            file1=$(echo "$item" | awk -F ' and ' '{print $2}')
+            file2=$(echo "$item" | awk -F ' and ' '{print $3}')
+            interactive_merge "$file1" "$file2"
+        done
+    else
+        echo -e "\nWould you like to merge any conflicting files? [y/N]"
+        read -r merge_resp
+        if [[ "$merge_resp" =~ ^[yY]$ ]]; then
+            for item in "${ACTION_ITEMS[@]}"; do
+                file1=$(echo "$item" | awk -F ' and ' '{print $2}')
+                file2=$(echo "$item" | awk -F ' and ' '{print $3}')
+                interactive_merge "$file1" "$file2"
+            done
+        else
+            echo "INFO: Skipping merge process."
+        fi
+    fi
 else
     echo -e "\nNo action items. All files were processed successfully."
 fi
