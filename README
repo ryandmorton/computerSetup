@@ -1,0 +1,21 @@
+# Computer Setup
+
+## Purpose
+This repository serves as a centralized tool to streamline the setup of new machines for a consistent development environment. It is designed for teams and individuals who want to ensure that their development tools, configurations, and scripts are shared and reusable across systems.
+
+## Scope
+`computerSetup` includes:
+- Shared setup scripts for installing tools, configuring environments, and managing essential files.
+- A flexible structure that allows users to personalize their setups while keeping shared configurations intact.
+- A system for managing machine-independent configurations, reducing manual setup time.
+
+## Vision
+The goal is to provide a base repository that users can clone, use, and customize while encouraging collaboration through public contributions and forks. This structure is especially helpful for organizations or teams that want to enforce best practices and consistency across machines.
+
+---
+
+## Future Additions
+- Setup scripts for files and package installations.
+- Detailed documentation for using and forking the repository.
+- Guidelines for contributing via pull requests.
+
