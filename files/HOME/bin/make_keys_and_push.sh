@@ -78,69 +78,56 @@ if [ "$ADD_CONFIG" = true ]; then
     read -r config_resp
     if [[ "$config_resp" =~ ^[yY]$ ]]; then
         SSH_CONFIG="$HOME/.ssh/config"
+        INCLUDE_LINE="Include ~/.ssh/config.d/*.config"
+
+        # Ensure ~/.ssh/config.d exists
         mkdir -p "$HOME/.ssh/config.d"
 
-        # Ask for a preferred name for the Host
-        echo "Enter a name for this Host (e.g., IT_server_1):"
-        read -r HOST_NAME
-        if [[ -z "$HOST_NAME" ]]; then
-            echo "ERROR: Host name cannot be empty."
-            exit 1
-        fi
-
-        HOST_ONLY="$(echo "$SERVER_LOGIN" | cut -d '@' -f 2)"
-
-        # Check for existing Host block
-        if grep -q "Host $HOST_NAME" "$SSH_CONFIG" 2>/dev/null; then
-            echo "A config block for Host $HOST_NAME already exists in $SSH_CONFIG. Skipping addition."
-        else
-            # Ask where to add the config block
-            echo "Would you like to:"
-            echo "1) Add to ~/.ssh/config"
-            echo "2) Add to an existing file in ~/.ssh/config.d"
-            echo "3) Create a new file in ~/.ssh/config.d"
-            echo "Enter choice (1/2/3):"
-            read -r config_choice
-
-            CONFIG_TARGET="$SSH_CONFIG"
-            case "$config_choice" in
-                2)
-                    echo "Enter the name of the existing file in ~/.ssh/config.d:"
-                    read -r config_file
-                    CONFIG_TARGET="$HOME/.ssh/config.d/$config_file"
-                    ;;
-                3)
-                    echo "Enter the name for the new file in ~/.ssh/config.d:"
-                    read -r config_file
-                    CONFIG_TARGET="$HOME/.ssh/config.d/$config_file"
-                    touch "$CONFIG_TARGET"
-                    ;;
-                *)
-                    # Default is adding to ~/.ssh/config
-                    CONFIG_TARGET="$SSH_CONFIG"
-                    ;;
-            esac
-
-            # Ensure Include line exists in ~/.ssh/config
-            if [[ "$CONFIG_TARGET" != "$SSH_CONFIG" ]]; then
-                if ! grep -q "Include ~/.ssh/config.d/*.config" "$SSH_CONFIG" 2>/dev/null; then
-                    echo "Include ~/.ssh/config.d/*.config" >> "$SSH_CONFIG"
-                fi
+        # Add the Include directive at the top of ~/.ssh/config
+        if ! grep -Fxq "$INCLUDE_LINE" "$SSH_CONFIG"; then
+            if [ ! -f "$SSH_CONFIG" ]; then
+                echo "$INCLUDE_LINE" > "$SSH_CONFIG"
+                echo "INFO: Created $SSH_CONFIG with Include directive"
+            else
+                sed -i "1i$INCLUDE_LINE" "$SSH_CONFIG"
+                echo "INFO: Added Include directive to the top of $SSH_CONFIG"
             fi
-
-            # Add the SSH config block
-            {
-                echo ""
-                echo "Host $HOST_NAME"
-                echo "    HostName $HOST_ONLY"
-                echo "    IdentityFile $KEY_NAME"
-                echo "    User $(echo "$SERVER_LOGIN" | cut -d '@' -f 1)"
-            } >> "$CONFIG_TARGET"
-
-            echo "SSH config updated successfully in $CONFIG_TARGET."
+        else
+            echo "INFO: Include directive already exists in $SSH_CONFIG"
         fi
+
+        # Add the host-specific configuration block
+        echo "Where would you like to add this SSH config block?"
+        echo "1) Directly to ~/.ssh/config"
+        echo "2) A new file in ~/.ssh/config.d/"
+        echo "3) An existing file in ~/.ssh/config.d/"
+        read -rp "Choose an option [1-3]: " config_option
+
+        case "$config_option" in
+            1)
+                echo -e "\nHost $HOST_NAME\n    HostName $HOST_ONLY\n    IdentityFile $KEY_NAME\n    User $(echo "$SERVER_LOGIN" | cut -d '@' -f 1)" >> "$SSH_CONFIG"
+                echo "INFO: Added SSH config block to $SSH_CONFIG"
+                ;;
+            2)
+                read -rp "Enter a filename for the new config file (e.g., server_name.config): " config_filename
+                CONFIG_FILE="$HOME/.ssh/config.d/$config_filename"
+                echo -e "\nHost $HOST_NAME\n    HostName $HOST_ONLY\n    IdentityFile $KEY_NAME\n    User $(echo "$SERVER_LOGIN" | cut -d '@' -f 1)" >> "$CONFIG_FILE"
+                echo "INFO: Added SSH config block to $CONFIG_FILE"
+                ;;
+            3)
+                ls "$HOME/.ssh/config.d/"*.config
+                read -rp "Enter the name of an existing file in ~/.ssh/config.d/: " existing_config
+                EXISTING_CONFIG_FILE="$HOME/.ssh/config.d/$existing_config"
+                echo -e "\nHost $HOST_NAME\n    HostName $HOST_ONLY\n    IdentityFile $KEY_NAME\n    User $(echo "$SERVER_LOGIN" | cut -d '@' -f 1)" >> "$EXISTING_CONFIG_FILE"
+                echo "INFO: Added SSH config block to $EXISTING_CONFIG_FILE"
+                ;;
+            *)
+                echo "Invalid option. Skipping SSH config block setup."
+                ;;
+        esac
     fi
 fi
+
 
 # Closing message with proper login instruction
 if [ "$ADD_CONFIG" = true ] && [[ -n "$HOST_NAME" ]]; then
