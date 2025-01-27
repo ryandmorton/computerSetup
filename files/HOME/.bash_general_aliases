@@ -1,0 +1,39 @@
+# ========================================
+# This file is part of the computerSetup package.
+# Repository: https://github.com/ryandmorton/computerSetup
+# ========================================
+
+# General-purpose aliases for everyday use
+
+# Navigation Aliases
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias home="cd ~"
+
+# List Aliases
+alias ll="ls -la"
+alias la="ls -A"
+alias l="ls -CF"
+
+# Enable color globally
+export CLICOLOR=1
+
+# Grep Aliases
+alias grep="grep --color=auto -I"
+alias rgrep="rgrep -n --color=auto -I"
+
+# Utilities
+alias c="clear"
+alias cls="clear"
+alias h="history"
+alias sbrc="source ~/.bashrc"
+
+# Folder Aliases and Functions
+alias md=mkdir
+alias rd=rmdir
+
+# Create a directory and navigate into it
+function mdcd() {
+    mkdir -p "$1" && cd "$1"
+}

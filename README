@@ -116,3 +116,7 @@ computerSetup/
 ## Vision
 The goal is to provide a base repository that users can clone, use, and customize while encouraging collaboration through public contributions and forks. This structure is especially helpful for organizations or teams that want to enforce best practices and consistency across machines.
 
+
+
+To enable developer tools, uncomment the following line in ~/.bash_aliases:
+  export USER_TYPE="developer"

@@ -1,0 +1,51 @@
+# ========================================
+# This file is part of the computerSetup package.
+# Repository: https://github.com/ryandmorton/computerSetup
+# ========================================
+
+# Developer-specific aliases and functions
+
+# Git Aliases
+if command -v gitk &>/dev/null; then
+    alias gitk='gitk --all &'
+fi
+alias gitg='gitg --all &'
+alias gitup='git remote update'
+alias gitst='git status'
+alias gd='git diff --color'
+alias gcp='git cherry-pick'
+alias grv='git remote -v'
+alias grp='git remote prune'
+alias grpo='git remote prune origin'
+alias gfo='git fetch origin'
+
+# Functions for Git
+function git_commit_and_steal_message() {
+    git commit -m "$(git log --format=%B -n 1 "$1")" && git commit --amend
+}
+function git_merge_and_steal_message() {
+    git merge "$1" -m "$(git log --format=%B -n 1 "$2")" && git commit --amend
+}
+function git_merge_noff_and_steal_message() {
+    git merge --no-ff "$1" -m "$(git log --format=%B -n 1 "$2")" && git commit --amend
+}
+
+# Build and Compile Aliases
+alias mc="make clean"
+alias mcm="make clean; make"
+alias mcmc="make clean && make && clear"
+alias cmcm="clear; make clean; make"
+alias ac="ant clean"
+alias aca="ant clean; ant"
+alias caca="clear; ant clean; ant"
+alias cme="clear; make && echo"
+alias cae="clear; ant && echo"
+
+# SHELL PROMPT with Git branch and dirty state
+function parse_git_dirty {
+    [[ $(git status 2> /dev/null | grep "^nothing to commit") ]] || echo "*"
+}
+function parse_git_branch {
+    git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e "s/* \(.*\)/[\1$(parse_git_dirty)]/"
+}
+export PS1='\[\033[01;32m\]\u@\h\[\033[01;34m\] \w\[\033[31m\] $(parse_git_branch)\[\033[01;34m\]$\[\033[00m\] '
