@@ -196,48 +196,37 @@ function make_links {
             continue
         fi
 
-        # Determine whether to copy or symlink
-        if should_copy "$dest"; then
+        # For sudo mode: Copy instead of creating symlinks
+        if [[ "$use_sudo" == "sudo" ]]; then
             if [[ "$DRY_RUN" == true ]]; then
                 log "INFO" "[Dry-run] Would copy file: $source -> $dest"
             else
+                if [[ -e "$dest" ]]; then
+                    log "INFO" "$dest exists, moving to $dest.old"
+                    $SUDO mv "$dest" "$dest.old"
+                fi
                 log "INFO" "Copying file: $source -> $dest"
                 $SUDO cp "$source" "$dest"
+                $SUDO chown root:root "$dest"
+                $SUDO chmod 644 "$dest"
             fi
         else
+            # Non-sudo mode: Create symlinks
             if [[ -e "$dest" ]]; then
                 if cmp -s "$source" "$dest"; then
                     log "INFO" "Skipping identical file: $dest"
                     continue
                 else
-                    if [[ "$DRY_RUN" == true ]]; then
-                        log "INFO" "[Dry-run] Would move existing file: $dest -> $dest.old"
-                    else
-                        log "INFO" "$dest exists, moving to $dest.old"
-                        $SUDO mv "$dest" "$dest.old"
-
-                        if [[ "$use_sudo" == "sudo" ]]; then
-                            SUDO_ACTION_ITEMS+=("Review and merge: $dest and $dest.old")
-                        else
-                            NON_SUDO_ACTION_ITEMS+=("Review and merge: $dest and $dest.old")
-                        fi
-                    fi
+                    log "INFO" "$dest exists, moving to $dest.old"
+                    mv "$dest" "$dest.old"
                 fi
             elif [[ -L "$dest" && ! -e "$dest" ]]; then
-                if [[ "$DRY_RUN" == true ]]; then
-                    log "INFO" "[Dry-run] Would delete broken link: $dest"
-                else
-                    log "WARN" "Deleting broken link: $dest --> $(readlink "$dest")"
-                    $SUDO rm "$dest"
-                fi
+                log "WARN" "Deleting broken link: $dest --> $(readlink "$dest")"
+                rm "$dest"
             fi
 
-            if [[ "$DRY_RUN" == true ]]; then
-                log "INFO" "[Dry-run] Would create symlink: $dest -> $source"
-            else
-                log "INFO" "Creating symlink: $dest -> $source"
-                $SUDO ln -s "$source" "$dest"
-            fi
+            log "INFO" "Creating symlink: $dest -> $source"
+            ln -s "$source" "$dest"
         fi
     done
 }
