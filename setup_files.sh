@@ -58,7 +58,7 @@ function log {
 # Function to ensure environment variables are set
 function ensure_variables {
     if [[ -z "$GIT_USER_NAME" ]]; then
-        read -p "Enter your Git user name: " GIT_USER_NAME
+        read -p "Enter your Git username (e.g., https://github.com/usernam): " GIT_USER_NAME
     fi
     if [[ -z "$GIT_USER_EMAIL" ]]; then
         read -p "Enter your Git email: " GIT_USER_EMAIL
@@ -193,6 +193,12 @@ function make_links {
                 $SUDO mkdir -p "$dest"
             fi
             make_links "$dest" "$source" "$use_sudo"
+            continue
+        fi
+
+        if [[ "$source" == *".gitconfig.default" ]]; then
+            log "INFO" "Processing .gitconfig.default to create .gitconfig"
+            process_templates "$source" "$HOME/.gitconfig"
             continue
         fi
 
